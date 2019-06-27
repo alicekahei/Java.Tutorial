@@ -314,7 +314,7 @@
 
 5. 结构图：
 
-   ![](img/3.2.2.1adapter.png)
+   ![适配器模式](img/3.2.2.1adapter.png)
 
 6. 参考代码：https://github.com/tqzz-edu/edu/tree/master/src/main/java/tianqin/iedu/struct
 
@@ -330,7 +330,7 @@
 
 4. 结构图：
 
-   ![](img/3.2.2.2.Bridge.png)
+   ![桥接模式](img/3.2.2.2.Bridge.png)
 
 5. 参考代码：https://github.com/tqzz-edu/edu/tree/master/src/main/java/tianqin/iedu/struct
 
@@ -342,7 +342,7 @@
 
 3. 结构：
 
-   ![](img/3.2.2.3.Composite.png)
+   ![组合模式](img/3.2.2.3.Composite.png)
 
 4. 参考代码：https://github.com/tqzz-edu/edu/tree/master/src/main/java/tianqin/iedu/struct
 
@@ -356,11 +356,9 @@
 
 4. 结构图：
 
-   ![](img/3.2.2.4.D.png)
+   ![装饰模式](img/3.2.2.4.D.png)
 
 5. 参考代码：https://github.com/tqzz-edu/edu/tree/master/src/main/java/tianqin/iedu/struct
-
-**Tips**： Java 的AOP技术，其背后的设计模式就是Decorator。
 
 #### 3.2.2.5 外观(Facade)
 
@@ -370,7 +368,7 @@
 
 3. 结构图：
 
-   ![](img/3.2.2.5.F.png)
+   ![Facade模式](img/3.2.2.5.F.png)
 
 4. 参考代码：https://github.com/tqzz-edu/edu/tree/master/src/main/java/tianqin/iedu/struct
 
@@ -388,7 +386,7 @@
 
 4. 结构图：
 
-   ![](img/3.2.2.6.P.png)
+   ![代理模式](img/3.2.2.6.P.png)
 
 5. 参考代码：https://github.com/tqzz-edu/edu/tree/master/src/main/java/tianqin/iedu/struct
 
@@ -402,4 +400,122 @@ Adapter 模式和Bridge模式具有一些共同的特征：它们都给另一个
 * Bridge 模式主要是解决抽象与实现的分离，使其独立演化。
 * Adapter 模式为了解决两个不兼容的类必须同时工作的问题，是在类设计之后实施的。Bridge 在设计之前知道一个抽象有多种实现部分，是在设计之前实施的。
 * Adapter 模式与Facade模式，Adapter 模式复用原有的接口，Facade定义一个新的接口。适配器使两个**已有**的接口协同工作，而**不是**定义一个全新的接口。
+
+Composite 和 Decorator 模式具有类似的结构图，这说明了它们都基于递归组合模式来组织可变数目都对象。 
+
+Decorator 对象是一个退化的Composite，但是Decorator的主要功能是**不需要**生成子类即可以添加职责。这就避免了静态实现所有功能组合，从而导致子类急剧增加。Composite 则有不同的目的，它旨在构造类，使多个相关的对象能够以统一的方式处理，而多重对象可以被当作一个对象来处理。
+
+另一种与Decorator 模式结构相似的模式是Proxy。这两种模式都描述了怎样为对象提供一定程度上的间接引用。Proxy 模式构成一个对象并为用户提供一致的接口。但与Decorator 模式不同的是，Proxy 模式不能动态地添加或者分离性质。
+
+### 3.2.3 行为模式
+
+#### 3.2.3.1 职责链模式
+
+1. 意图：使多个对象都有机会处理请求，从而避免请求的发送者和接收者之间的耦合关系。将这些对象连成一条链，并沿着这条链传递该请求，直到有一个对象处理它。
+
+2. 适用性：有多个对象可以处理一个请求，哪个对象来处理这个请求运行时刻自动确定。
+
+3. 结构：
+
+   ![职责链模式](img/3.3.2.1.C.png)
+
+4. 参考代码：https://github.com/tqzz-edu/edu/tree/master/src/main/java/tianqin/iedu/behavior
+
+5. 使用：Java SpringMVC 的Filter 链，就是采用职责链模式。职责链，可以让我们在某个业务处理链条中，插入前置操作或者后置操作。
+
+#### 3.2.3.2 Command模式
+
+1. 意图： 将一个请求封装为一个对象，从而可用途不同的请求对客户进行参数化；对请求排队或记录请求日志，以及支持可撤销的操作。
+
+2. 别名：动作、事物
+
+3. 结构：
+
+   ![命令模式](img/3.3.3.2Cmd.png)
+
+4. 参考代码：https://github.com/tqzz-edu/edu/tree/master/src/main/java/tianqin/iedu/behavior
+
+5.  Command 模式，使用场景：（1）回调（2）支持取消或者重做。（3）Java 函数编程
+
+#### 3.2.3.3 迭代器
+
+1. 意图：提供一种方法 顺序访问一个聚合对象各个元素，而又不需暴露该对象的内部元素。
+
+2. 别名： 游标
+
+3. 动机：访问聚合对象(list、map、set)，而又不暴露内部细节。
+
+4. 结构：
+
+   ![迭代器模式](img/3.2.3.3It.png)
+
+5. 参考代码：https://github.com/tqzz-edu/edu/tree/master/src/main/java/tianqin/iedu/behavior
+
+  迭代器模式一般用于容器遍历对象，比如链表list、map、set。
+
+#### 3.2.3.4 MEMENTO （备忘录）
+
+1. 意图：在不破坏封装性的前提下，捕获一个对象的内部状态，并在该对象之外保存这个状态。这样以后就可以将该对象恢复到原先保存到状态。
+
+2. 别名：Token
+
+3. 动机：提供一种存储对象的状态信息，使得能够取消或者恢复。
+
+4. 结构：
+
+   ![备忘录](img/3.2.3.4memento.png)
+
+5. 参考代码：https://github.com/tqzz-edu/edu/tree/master/src/main/java/tianqin/iedu/behavior
+
+   备忘录是用于状态信息存储，从而可以恢复到之前到状态。
+
+#### 3.2.3.5 观察者
+
+1. 意图：定义对象间的一种一对多的依赖关系，当一个对象的状态发生改变时，所有依赖于它的对象都得到通知，并被自动更新。
+
+2. 别名：依赖、发布-订阅。
+
+3. 动机：提供一种对象接耦的方式。
+
+4. 结构：
+
+   ![观察者模式](img/3.2.3.5.Ob.png)
+
+5. 参考代码：https://github.com/tqzz-edu/edu/tree/master/src/main/java/tianqin/iedu/behavior
+
+观察者模式，在Java 中，MVC 模式中的Model 类担任目标的角色，而View 是观察者的基类，Listener 也是观察者的基类。
+
+#### 3.2.3.6 状态模式
+
+1. 意图：允许一个对象在内部状态改变时改变它的行为，对象看起来似乎修改了它的类。
+
+2. 别名：状态对象
+
+3. 动机：状态模式描述对象在不同状态下的行为。一个对象的行为取决于它的状态，并且它必须在运行时刻根据状态改变它的行为。
+
+4. 结构：
+
+   ![状态模式](img/3.2.3.6.state.png)
+
+5. 参考代码：https://github.com/tqzz-edu/edu/tree/master/src/main/java/tianqin/iedu/behavior
+
+   状态模式描述对象的一个状态及其行为，比如状态机。
+
+#### 3.2.3.7 策略模式
+
+1. 意图：定义一系列的算法，把他们一个个封装起来，并且使他们可相互替换。本模式使得算法可独立于使用它的客户而变化。
+
+2. 别名：政策。
+
+3. 动机：解决了算法的改变，导致对对象的侵入、影响，将算法的改变和类对象独立，使得更换类的算法更加便捷。
+
+4. 结构：
+
+   ![策略模式](img/3.2.3.7策略.png)
+
+5. 参考代码：https://github.com/tqzz-edu/edu/tree/master/src/main/java/tianqin/iedu/behavior
+
+   策略模式更重要的是解决对象更换算法更加容易，从类的结构图来看跟命令模式和桥接模式类似，Strategy对象经常是很好的轻量级对象。
+
+
 
