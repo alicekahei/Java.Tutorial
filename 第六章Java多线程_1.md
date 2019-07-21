@@ -194,6 +194,30 @@ th.start();
 
 
 
+**synchronized、wait、notify的使用方式**
+
+```java
+// A 线程：
+synchronized(this){
+   // do some thing
+   // 唤醒等待者
+   notify();
+   // notifyAll();
+}
+
+// 线程B
+synchronized(this){
+  if(!condition){
+    //条件不满足，进行等待
+    wait(); // 等待notify
+  }
+}
+```
+
+
+
+
+
 ```java
 package tianqin.iedu;
 
@@ -375,6 +399,356 @@ public class App
 *采用lock*
 
 ```java
+	/**volatile 是为了线程可见性**/
+  private static volatile int sum = 0;
+  /**创建全局锁变量**/
+	private static Lock lock = new ReentrantLock(); 
+
+  /**在进行累加的代码进行加锁操作**/
+  lock.lock();
+	sum = sum + i;
+	lock.unlock();
+```
+
+
+
+*不采用锁，采用原子变量*
+
+```java
+// 声明为：java.util.concurrent.atomic.AtomicInteger 变量
+private static AtomicInteger sum = new AtomicInteger(0);
+
+/**累加操作**/
+sum.addAndGet(i);
+```
+
+具体的方法，可以参考：https://docs.oracle.com/javase/8/docs/api/ 下的java.util.concurrent.atomic 包。
+
+**原子变量的原理**：
+
+* 声明一个 线程可见的 int value。
+* 累加操作采用 sun.misc.Unsafe 的相关方法进行操作，这些方法基本上JNI方法。
+
+**安全锁的原则**
+
+*synchronized*的使用方法：
+
+```java
+class A{
+  /**方法一：对象：锁住对象的函数**/
+  // private static Object obj = new Object();
+  public synchronized void doSomething{
+      // 整个方法需要同步，被锁住
+      // 同时两个线程A、B调用同一个对象的doSomething，会串行执行。
+     ;
+  }
+  /**方法二：对象：锁住对象的某段代码**/
+  public void doAnother(){
+    synchronized(this){
+        // 需要同步的代码块
+        // 同时两个线程A、B调用同一个对象的doAnother，执行到这个代码段，会串行执行。
+       ;
+    }
+  }
+  
+  /**方法三：类上：静态成员函数**/
+  public static void doHH(){
+    // 在这里，也可以利用静态成员变量
+    // synchronized(obj)
+    synchronized(A.class){
+      // 需要同步的代码块
+        // 同时两个线程A、B调用同一个对象的doHH，执行到这个代码段，会串行执行。
+    }
+  }
+}
+```
+
+
+
+*synchronized的特性说明*
+
+* synchronized 是用于保护共享数据（类的静态成员变量，或者对象的成员变量，这些变量在多线程环境下是可访问的），当**语句体**执行完毕（无论正常或者异常），解锁操作自动完成。
+* 对象上synchronized语句体，只会影响访问同一对象synchronized语句体的线程，不同对象的synchronized语句体不相干的。同一类上的synchronized语句体会影响到访问类上的synchronized语句体的线程。
+* synchronized，是可递归的，即同一线程嵌套获取锁，但不建议。
+
+
+
+*Lock 对象的使用方法*
+
+```java
+/**声明对象，锁必须是共享数据，即在多线程环境，相关线程是可见的**/
+Lock lock = new ReentrantLock(); 
+
+/**多线程访问的方法**/
+public void func(){
+  /*....*/
+  try{
+    /**获取锁**/
+    lock.lock();
+    //do something，有可能抛异常
+  }finally{
+    // finally 语句，在方法体执行完毕，无论正常或者异常返回，都会执行
+    // 为了防止死锁，最佳实践是在finally 语句块中释放
+    lock.unlock();
+  }
+}
 
 ```
+
+
+
+*Lock对象的特性说明*
+
+* Lock类锁之后，必须释放，否则会死锁。
+* Lock类锁有可递归的锁，有不可递归的锁。
+* Lock类锁，有分读写锁（读锁，只互斥写，写锁互斥所有）、有排他锁。
+
+## 6.6 多线程最佳实践
+
+### 6.6.1 锁的最佳实践
+
+**最佳原则：**
+
+1、控制锁的范围，从高性能的角度来看，尽量缩小锁的访问。
+
+​     假如共享变量sum，用来统计多线程操作的数次，其最佳锁的范围。
+
+```java
+  /**共享变量**/
+  volatile int sum = 0;
+
+  /**多线程代码**/
+  public void funcA(){
+    while((sum < 1000)){
+      /**业务处理**/
+      /**锁：**/
+      lock.lock();
+      sum = sum + 1;
+      lock.unlock();
+    }
+  }
+```
+
+2、在锁的范围内，建议**不要睡眠**、或者**等待**。
+
+​    如下的例子不建议：
+
+```java
+/**多线程执行代码块**/ 
+public void funcA(){
+    synchronized(this){
+      /**互斥业务处理**/
+      /**不建议的处理**/
+      Thread.sleep(1000);
+    }
+ }
+```
+
+3、保证锁的顺序，避免死锁。
+
+```java
+/**声明全局锁**/
+Lock a =  new ReentrantLock(); 
+Lock b =  new ReentrantLock(); 
+
+/**线程A方法：**/
+public void funcA(){
+  a.lock();
+  b.lock();
+  /**业务处理**/
+  b.unlock();
+  a.unlock();
+}
+
+
+/**线程B方法：**/
+public void funcB(){
+  b.lock();
+  a.lock();
+  /**业务处理**/
+  a.unlock();
+  b.unlock();
+}
+
+```
+
+  该例子会发生什么问题？死锁。各位可以分析下。 解决方法funcA和funcB获取锁的顺序要一样，要么a、b顺序或者b、a顺序。
+
+4、建议分离锁
+
+​      不相关的共享数据，建议采用不同的锁，不建议采用同一把锁来保护不同的共享数据。
+
+5、建议分拆锁
+
+​      同一共享数据，可以根据数据的分拆，采用多个锁。比如共享数据是一个数组，如果数组的大小是固定的，多线程只是访问、修改数组的元素、不会发生数组移动等操作，这时可以采用分拆锁。比如数组下标% 5，0 采用 lock0、1采用lock1、…，4采用lock4。减少多线程的竞争，提高性能。
+
+
+
+### 6.6.2 线程最佳实践
+
+**最佳原则**
+
+1、executor 和 task 优先于**线程**
+
+​     在实际编程过程中，我们经常采用后台线程异步处理工作，当处理完，优雅地终止。这是很常见的玩具代码，我们可以从头到尾通过多线程的知识去编写，也可以利用java.util.concurrent包中的相关代码。比如，我们可以：
+
+```java
+/**创建一个ExecutorService方法**/
+ExecutorService executor = Executors.newSingleThreadExecutor();
+
+/**提交一个runnable**/
+executor.execute(runnable);
+
+/**优雅地终止**/
+executor.shutdown();
+```
+
+2、要多线程来执行，需要用到线程池来执行，我们不必造轮子，可以直接用如下：
+
+```java
+ ExecutorService executor = Executors.newCachedThreadPool(new ThreadFactory(){
+   public Thread newThread(Runnable r) {
+     return new Thread(r, "thread name");
+   }
+ });
+
+/**提交多线程任务:runnalbe**/
+executor.execute(runnable);
+executor.execute(runnable);
+executor.execute(runnable);
+executor.execute(runnable);
+```
+
+可缓存线程池常用于线程大小比较难预估的环境，是比较灵活，但是比较容易出问题。有可能导致线程池中线程的大小不可预估，导致JVM虚拟机内存溢出。
+
+一般建议采用：Executors.**newFixedThreadPool**(int nThreads, [ThreadFactory](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ThreadFactory.html) threadFactory)。
+
+3、定时任务 优先选择[ScheduledExecutorService](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ScheduledExecutorService.html)   
+
+```java
+ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+/**如果只是执行一个定时任务，只需要一个线程，这个也可以用：newSingleThreadScheduledExecutor()**/
+/**如果定时任务，不只一个，则建议采用多线程，比如有N个定时任务，最大限度有N个线程**/
+
+/**提交执行一次定时任务: 延迟delay**/
+scheduler.schedule(Runnable command, long delay, TimeUnit unit);
+/**提交永久定时任务：initialDelay + N * period，N执行数次**/
+scheduler.scheduleAtFixedRate(Runnable command,long initialDelay,long period,TimeUnit unit)；
+/**提交永久定时任务：第一次执行时间间隔initialDelay，下次执行时间延迟delay**/
+scheduler.scheduleWithFixedDelay(Runnable command, long initialDelay, long delay, TimeUnit unit)
+```
+
+ 4、建议优先ThreadPoolExecutor取代 ExecutorService。因为ExecutorService 隐含使用无限队列，存在JVM OOM 的风险。
+
+```java
+ThreadPoolExecutor executor = new ThreadPoolExecutor(1, /*最小线程数*/			                                                      Runtime.getRuntime().availableProcessors(), /*最大线程数*/
+				                               10, /*线程包活时长*/  
+				                               TimeUnit.SECONDS,
+				                               new LinkedBlockingDeque<>(1024),  /*最大队列*/
+				                               new ThreadPoolExecutor.DiscardOldestPolicy() /* 超过最大队列数，的除了*/);
+executor.execute(()->{ System.out.println("Hello");});
+```
+
+ThreadPoolExecutor 适合生存者-消费者的模型，通过execute提交的任务，只执行一次。如果队列中，堆积超过最大队列数，则会采取相应的拒绝策略，例子中的拒绝策略是丢弃老的队列。ThreadPoolExecutor 适合用于不断新来的异步任务。
+
+5、并发工具优先与wait 和 notify
+
+​    遇到并发问题，优先采用java.util.concurrent 中更高级的工具。
+
+* Executor Framework：多线程框架，优先与多线程。正如前文提到的1、2、3、4。
+
+* 并发集合，Concurrent Collection 在多线程环境中为List、Queue 和Map 提供了高性能的并发实现。
+
+  比如：[ConcurrentHashMap](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ConcurrentHashMap.html) 是线程安全的Map，[ConcurrentLinkedQueue](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ConcurrentLinkedQueue.html) 是线程安全的Queue，[LinkedBlockingDeque](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/LinkedBlockingDeque.html) 是线程安全的Queue。
+
+* 同步器：[Semaphore](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/Semaphore.html)（用于限流、限制执行数） 和 [CountDownLatch](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CountDownLatch.html) （用于计数）。
+
+* 原子变量解决多线程中变量的线程安全，比如：[AtomicInteger](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/atomic/AtomicInteger.html)、[AtomicIntegerArray](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/atomic/AtomicIntegerArray.html)，具体可以参考java.util.concurrent.atomic。
+
+### 6.6.3 慎用延迟初始化
+
+ 延迟初始化，是延迟到需要域的值时才将它初始化的这种行为。如果永远不需要这个值时，这个域永远不会被初始化。这种方法既适用于静态域，也适用实例域。在多线程访问这个域的时候，延迟初始化需要技巧。
+
+```java
+/**方法一：在大多数情况下，正常的初始化优先与延迟初始化**/
+private final FieldType field = computeFieldValue(); //正常初始化
+
+/**方法二：如果采用延迟初始化，最简单、最清楚的方法**/
+private FieldType field;
+synchronized FieldType getField(){
+  if(field == null){
+     field = computeFieldValue(); 
+  }
+  return field;
+}
+/***方法三：方法二，存在的问题，每次获取这个对象的时候都需要锁，但是如果解决了首次初始化
+  ，以后每次获取的时候，就不需要锁***/
+/**方法三：initialize-on-demand holder class idiom**/
+private static class FieldHolder{
+  static final FieldType field = computeFieldValue();
+}
+static FieldType getField(){ return FieldHolder.field;}
+
+/**方法四：采用Double-check idiom模式**/
+private volatile FieldType field;
+/**volatile 线程可见性、防指令重排***/
+FieldType getField(){
+  FieldType result = field;
+  if(result == null){
+    /**first check**/
+    synchronized(this){
+      result = field;
+      if(result == null){
+        /**double-check**/
+        field = computeFieldValue();
+        result = field;
+      }
+    }
+  }
+  return result;
+} 
+
+```
+
+方法四 双重检查机制 在Java 1.5发行版本之前，有时由于volatile修饰符的语义不够强，导致难于支持。在Java 1.5 发行版中引入的内存模式解决了这个问题。
+
+### 6.6.4 不要依赖线程调度器
+
+任何依赖于线程调度器来达到正确性或者性能要求的程序，很有可能是不可以移植的。
+
+1、线程忙-等状态，即反复检查一个共享对象，以等待某些事情发生。比如：下面的例子实现类似同步器 CountDownLatch的功能，但是性能慢了很多。
+
+```java
+public class SimpleCountDownLatch{
+  private int count;
+  public SimpleCountDownLatch(int count){
+    if(count < 0){
+       throw new IllegalArgumentException(count + " < 0");
+    }
+    this.count = count;
+  }
+  public void await(){
+    while(true){
+      /**忙-等：不断地检测共享变量**/
+      synchronized(this){
+         if(count == 0){
+           return ;
+         }//
+      }//
+    }//
+  }//
+  
+  public synchronized void countDown(){
+     if(count > 0){
+       count --;
+     }
+  }
+}
+```
+
+2、不要依赖Thread.yield 来修正线程，最佳的是优化代码，以减少并发运行的线程数量。
+
+3、不要依赖线程优先级，线程优先级是Java 平台上最不可移植的特征了。
+
+4、不要依赖线程的调度时间，假如一个定时任务设计上是每秒调度一次，但是千万不要太依赖这个特性，做了强依赖该特点的业务逻辑。因为线程调度会存在一点点的时间误差。
 
