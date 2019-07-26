@@ -752,3 +752,144 @@ public class SimpleCountDownLatch{
 
 4、不要依赖线程的调度时间，假如一个定时任务设计上是每秒调度一次，但是千万不要太依赖这个特性，做了强依赖该特点的业务逻辑。因为线程调度会存在一点点的时间误差。
 
+## 6.7 多线程编程规范
+
+1. 【强制】获取单例对象需要保证线程安全，其中的方法也要保证线程安全。
+     说明:资源驱动类、工具类、单例工厂类都需要注意。
+
+  例子参考 6.6.3
+
+  单例：一般设计模式的单例模式，例子：
+
+  ```java
+  package tianqin.iedu.facatory;
+  
+  /***
+   * Singleton
+   * @author simon
+   * @date 2019/07/26
+   */
+  public class Singleton {
+  	/**lazy-load**/
+  	private static class LazyHolder{
+  		private final static Singleton INSTANCE = new Singleton();
+  	}
+  	
+  	private Singleton() {
+  		/**单例：将构造函数设置为私有，确保单利**/
+  	}
+  	
+  	/***
+  	 * 
+  	 * @return Singleton
+  	 */
+  	public static Singleton instance() {
+  	    /**通过lazy-load-holder方式 解决线程安全**/
+  		return LazyHolder.INSTANCE;
+  	}
+  }
+  ```
+
+  
+
+2. 【强制】创建线程或线程池时请指定有意义的线程名称，方便出错时回溯。
+
+  正例:自定义线程工厂，并且根据外部特征进行分组，比如机房信息。
+
+  ```java
+     public class UserThreadFactory implements ThreadFactory { 
+          private final String namePrefix;
+          private final AtomicInteger nextId = new AtomicInteger(1);
+          // 定义线程组名称，在 jstack 问题排查时，非常有帮助 
+          public UserThreadFactory(String whatFeaturOfGroup) {
+               namePrefix = "From UserThreadFactory's " + whatFeaturOfGroup + "-Worker-"; 
+          }
+          @Override
+          public Thread newThread(Runnable task) {
+              String name = namePrefix + nextId.getAndIncrement(); 
+              Thread thread = new Thread(null, task, name, 0, false);
+              return thread;
+      }
+  }
+  ```
+
+  
+
+3. 【强制】线程资源必须通过线程池提供，不允许在应用中自行显式创建线程。
+
+    说明:线程池的好处是减少在创建和销毁线程上所消耗的时间以及系统资源的开销，解决资源不足的问 题。如   果不使用线程池，有可能造成系统创建大量同类线程而导致消耗完内存或者“过度切换”的问题。 
+
+4. 【强制】线程池不允许使用Executors去创建，而是通过ThreadPoolExecutor的方式，这 样的处理方式让写的同学更加明确线程池的运行规则，规避资源耗尽的风险。 
+
+   说明:Executors 返回的线程池对象的弊端如下: 
+
+   FixedThreadPool 和 SingleThreadPool:
+
+   允许的请求队列长度为 Integer.MAX_VALUE，可能会堆积大量的请求，从而导致 OOM。 
+
+   CachedThreadPool:
+   允许创建的线程数为 Integer.MAX_VALUE，可能会创建大量的线程，从而导致 OOM。 
+
+   具体可以参考 6.6.3 线程最佳实践。
+
+5. 【强制】对多个资源、数据库表、对象同时加锁时，需要保持一致的加锁顺序，否则可能会 造成死锁。  	
+  
+     说明:线程一需要对表 A、B、C 依次全部加锁后才可以进行更新操作，那么线程二的加锁顺序也必须是 A、B、C，否则可能出现死锁。 (可以参考锁的最佳实践) 				
+    
+6. 【强制】在使用阻塞等待获取锁的方式中，必须在try代码块之外，并且在加锁方法与try代
+    码块之间没有任何可能抛出异常的方法调用，避免加锁成功后，在 finally 中无法解锁。
+
+    参考 6.6.1 锁的最佳实践
+
+    ```java
+        //正例:
+        Lock lock = new XxxLock();
+        // ...
+        lock.lock(); 
+        try {
+            doSomething();
+            doOthers(); 
+        } finally {
+            // 无论如何都会执行到
+            lock.unlock(); 
+        }
+    
+       //反例:
+       // ...
+       try {
+         // 如果此处抛出异常，则直接执行 finally 代码块
+         doSomething();
+         // 无论加锁是否成功，finally 代码块都会执行
+         lock.lock();
+         doOthers(); 
+       } finally {
+         // 有可能存在误释放锁
+         lock.unlock(); 
+       }
+    ```
+    
+7. 【强制】在使用尝试机制来获取锁的方式中，进入业务代码块之前，必须先判断当前线程是
+                  否持有锁。锁的释放规则与锁的阻塞等待方式相同。
+    说明:Lock 对象的 unlock 方法在执行时，它会调用 AQS 的 tryRelease 方法(取决于具体实现类)，如果
+    当前线程不持有锁，则抛出 IllegalMonitorStateException 异常。
+  ```java
+   Lock lock = new XxxLock();
+   // ...
+   boolean isLocked = lock.tryLock(); 
+   if (!isLocked) {
+      return ;
+   }
+   try { 
+        doSomething();
+        doOthers(); 
+   }finally {
+        lock.unlock(); 
+   }
+  ```
+
+  
+
+8. 【推荐】资金相关的金融敏感信息，使用悲观锁策略。
+    说明:乐观锁在获得锁的同时已经完成了更新操作，校验逻辑容易出现漏洞，另外，乐观锁对冲突的解决
+    策略有较复杂的要求，处理不当容易造成系统压力或数据异常，所以资金相关的金融敏感信息不建议使用
+    乐观锁更新。
